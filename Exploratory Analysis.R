@@ -19,7 +19,7 @@ train_set %>% group_by(X1) %>% count() %>%
     geom_bar(stat="identity", fill="red")
 
 #scaterplot 
-as.factor(prop_sales$BOROUGH)
+
 train_set%>%filter(BOROUGH==1) %>% 
     ggplot(aes(x=X1,y=SALE.DATE,shape=as.factor(BOROUGH)))+geom_point()
 
