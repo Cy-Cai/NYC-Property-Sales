@@ -12,6 +12,10 @@ RMSE <- function(true_price,predicted_price){
   sqrt(mean((true_price-predicted_price)^2))
 }
 
+# AbEorrPer <- function(true_price,predicted_price){
+#      mean(abs(true_price-predicted_price)/true_price)
+#      }
+
 #Exploratory Analysis
 
 
@@ -30,7 +34,7 @@ b1<-fit_simplest$coefficients[2]
 newd<-data.frame(GROSS.SQUARE.FEET=test_set$GROSS.SQUARE.FEET)
 predicted_price<- predict(fit_simplest,newd,interval="prediction")
 rmse_simplist_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
-
+# aberrorper_simplist_model<-AbEorrPer(test_set$SALE.PRICE,predicted_price[,1])
 
 
 #Observe the RMSE by Property ID
@@ -72,7 +76,7 @@ loop.names<-names(temp_p)
 for (i in loop.vector) {
  #Observe the RMSE by Borough
 print(i)
-    
+
  plot<-temp_p%>%dplyr::select(i,25) %>% 
      rename(A=1) %>%
         group_by(A) %>%
@@ -85,3 +89,78 @@ print(i)
  print(plot)
 }
 
+#The 2nd Model: SALE.PRICE~GROSS.SQUARE.FEET+ IS.Manhattan
+#y=b0+b1*x1+b2*(I(Manhattan)*x1)
+
+#adding a column: if it is in Manhattan, it equals to Gross Square Feet; otherwise 0
+temp <- train_set %>% mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                                       TRUE ~ 0     )*GROSS.SQUARE.FEET) 
+fit_IsManhattan<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhattan,data = temp)
+
+tidy(fit_IsManhattan)
+summary(fit_IsManhattan)    
+
+#save the model coefficient for the predcition calculation
+b0<-fit_IsManhattan$coefficients[1]
+b1<-fit_IsManhattan$coefficients[2]
+b2<-fit_IsManhattan$coefficients[3]
+
+
+#Performance
+newd<-test_set %>% 
+    mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                     TRUE ~ 0     )*GROSS.SQUARE.FEET) %>% 
+    dplyr::select(GROSS.SQUARE.FEET,GSFandManhattan) 
+
+
+predicted_price<- predict(fit_IsManhattan,newd,interval="prediction")
+rmse_IsManhattan_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
+## aberrorper_simplist_model<-AbEorrPer(test_set$SALE.PRICE,predicted_price[,1])
+
+#Observe the RMSE by Property ID
+#Create temp table to draw plot; calculate the residual by property 
+temp_p<-test_set %>%
+    mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                     TRUE ~ 0     )*GROSS.SQUARE.FEET) %>% 
+    mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET+b2*GSFandManhattan) %>% 
+    mutate(residul=(SALE.PRICE-predicted_price)^2) %>%
+    mutate(r=sqrt(residul))
+
+MED<-median(temp_p$r)
+
+#Store the results 
+rmse_results <-rbind(rmse_results, data.frame(method="Is Manhattan",RMSE_in_thousand=round(rmse_IsManhattan_model/1000,0),MED_in_thousand=round(median(temp_p$r)/1000,0))%>%
+    mutate(k=round(RMSE_in_thousand/MED_in_thousand,0)))
+
+#Histogram
+temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
+    labs(x="Residual",y="Property Count",title="Histogram Property Count vs Residual")+
+    geom_vline(xintercept=median(temp_p$r))
+
+#Observation: there are some prediction outliners; long tail 
+
+
+#Create a for loop to create bar chart for each variable
+
+names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
+loop.vector<-c(2,3,4,5,9,12,18,19,20)
+# library(UsingR)
+# par(mfrow=c(3,ceiling(length(loop.vector)/3)))
+# par(mfrow=c(1,2))
+
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+for (i in loop.vector) {
+    #Observe the RMSE by Borough
+    print(i)
+    plot<-temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
+    
+    print(plot)
+}
