@@ -1,4 +1,8 @@
 if(!require(broom)) install.packages("broom", repos = "http://cran.us.r-project.org")
+if(!require(graphics)) install.packages("graphics", repos = "http://cran.us.r-project.org")
+if(!require(UsingR)) install.packages("UsingR", repos = "http://cran.us.r-project.org")
+
+
 
 head(train_set)
 sapply(train_set, class)
@@ -7,6 +11,10 @@ sapply(train_set, class)
 RMSE <- function(true_price,predicted_price){
   sqrt(mean((true_price-predicted_price)^2))
 }
+
+#Exploratory Analysis
+
+
 
 #The simplest model: SALE.PRICE~GROSS.SQUARE.FEET
 fit_simplest<- lm(SALE.PRICE~GROSS.SQUARE.FEET,data = train_set)
@@ -47,18 +55,33 @@ temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
 
 #Observation: there are some prediction outliners; long tail 
 
-#Observe the RMSE by Borough
 #Create temp table to draw plot 
 temp_p<-test_set %>%mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET) %>% 
-    mutate(residul=(SALE.PRICE-predicted_price)^2) %>%  group_by(BOROUGH) %>%
-    summarise(r=sqrt(mean(residul)))
+    mutate(residul=(SALE.PRICE-predicted_price)^2)
 
+#Create a for loop to create bar chart for each variable
 
-#bar chart
+names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
+loop.vector<-c(2,3,4,5,9,12,18,19,20)
+# library(UsingR)
+# par(mfrow=c(3,ceiling(length(loop.vector)/3)))
+# par(mfrow=c(1,2))
 
-temp_p%>% ggplot(aes(BOROUGH,r))+geom_bar(stat = "identity") +
-    labs(x="Borough",y="Residual",title="Bar Chart Residual vs Borough")+
-    geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+loop.names<-names(temp_p)
 
-
+for (i in loop.vector) {
+ #Observe the RMSE by Borough
+print(i)
+    
+ plot<-temp_p%>%dplyr::select(i,25) %>% 
+     rename(A=1) %>%
+        group_by(A) %>%
+    summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+       labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+      geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+     geom_hline(yintercept=rmse_simplist_model)
+        
+ print(plot)
+}
 
