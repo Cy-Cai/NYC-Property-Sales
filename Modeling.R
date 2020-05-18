@@ -164,3 +164,24 @@ for (i in loop.vector) {
     
     print(plot)
 }
+
+#Observation: RMSE decrease, but still big; mainly impacted by 
+#transacation in Manhattan need to look deeper in to Manhattan's transcations
+
+train_set %>%  filter(SALE.PRICE>=1000000) %>% 
+          ggplot(aes(x=Prop_ID,y=SALE.PRICE,color=factor(BOROUGH)))+
+    geom_point()
+
+train_set %>%  filter(SALE.PRICE>=1000000) %>% 
+    group_by(BOROUGH) %>% 
+    summarise(NROW(SALE.PRICE))
+
+train_set %>% filter(SALE.PRICE<1000000) %>% 
+    ggplot(aes(x=factor(BOROUGH),y=SALE.PRICE))+
+    geom_boxplot(outlier.colour="black", outlier.shape=16,
+                                                    outlier.size=2, notch=FALSE)
+#SALE.PRICE in Manhathan varies a lot. Need to determine extra factor for
+#Manhattan
+
+
+
