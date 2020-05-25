@@ -62,24 +62,32 @@ fit_simplest<- lm(SALE.PRICE~GROSS.SQUARE.FEET,data = train_set)
 tidy(fit_simplest)
 summary(fit_simplest)[9]
 ```
+```{r}
+b0<-fit_simplest$coefficients[1]
+b1<-fit_simplest$coefficients[2]
+```
 
+So the model 1 can be expressed as: {Sale.Price}=`r format(round(b0,0),scientific=F)`+`r round(b1,0)`*{GROSS.SQUARE.FEET}.
+
+The model predicts the base price for a property is `r format(round(b0,0),scientific=F)` dollars and every extra square feet is `r round(b1,0)` dollars.
 
 ### Performance
 
 ```{r, echo=FALSE}
-b0<-fit_simplest$coefficients[1]
-b1<-fit_simplest$coefficients[2]
+
 
 newd<-data.frame(GROSS.SQUARE.FEET=test_set$GROSS.SQUARE.FEET)
 predicted_price<- predict(fit_simplest,newd,interval="prediction")
-rmse_simplist_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
+rmse_simplest_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
 temp_p<-test_set %>%mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET) %>% 
     mutate(residul=(SALE.PRICE-predicted_price)^2) %>%  group_by(Prop_ID) %>%
     summarise(r=sqrt(mean(residul)))
 MED<-median(temp_p$r)
 
-rmse_results <- data.frame(method="gross sq ft",RMSE_in_thousand=round(rmse_simplist_model/1000,0),Median_Residual_in_thousand=round(median(temp_p$r)/1000,0))%>%
-    mutate(k=round(RMSE_in_thousand/Median_Residual_in_thousand,0),Adj_r_sq=summary(fit_simplest)[9])
+rmse_results <- data.frame(method="gross sq ft",   RMSE_in_thousand=round(rmse_simplest_model/1000,0),
+                           MED_in_thousand=round(median(temp_p$r)/1000,0), 
+                           k=round(rmse_simplest_model/median(temp_p$r),0),
+                           Adj_r_sq=summary(fit_simplest)[9])
 
 ```
 ```{r}
@@ -106,7 +114,7 @@ temp_p%>%dplyr::select(i,26) %>%
         ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
       geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-     geom_hline(yintercept=rmse_simplist_model)
+     geom_hline(yintercept=rmse_simplest_model)
 
 ```
 
@@ -116,14 +124,105 @@ Therefore, I need to consider borough as a factor for the next model.
 ## 2.2 Model 2
 In the 2nd Model,I consider GROSS.SQUARE.FEET as well as whethr the property is in Manhattan.The regression expression is y=b0+b1*GSF+b2*(I(Manhattan)*GSF.
 
+I(Manhattan) is identity funcition. It equals to 1 if the property is in Manhattan; otherwise zero.
+
+```{r, echo=FALSE}
+temp <- train_set %>% mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                                       TRUE ~ 0     )*GROSS.SQUARE.FEET) 
+```
+
+
+```{r}
+fit_IsManhattan<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhattan,data = temp)
+tidy(fit_IsManhattan)
+summary(fit_IsManhattan)[9]   
+```
+```{r,echo=FALSE}
+#save the model coefficient for the predcition calculation
+b0<-fit_IsManhattan$coefficients[1]
+b1<-fit_IsManhattan$coefficients[2]
+b2<-fit_IsManhattan$coefficients[3]
+```
+
+So the model 1 can be expressed as: {Sale.Price}=`r format(round(b0,0),scientific=F)`+`r round(b1,0)`* {GROSS.SQUARE.FEET} +`r round(b2,0)` * {IS.MANHATTAN} * {GROSS.SQUARE.FEET}.
+
+The model predicts the base price for a property is `r format(round(b0,0),scientific=F)` dollars.If  the property is not in Manhattan,every extra square feet is `r round(b1,0)` dollars. If the property is in Manhattan, every extra square feet is `r round(b1+b2,0)` dollars. 
 
 ### Performance
+```{r, echo=FALSE}
+newd<-test_set %>% 
+    mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                     TRUE ~ 0     )*GROSS.SQUARE.FEET) %>% 
+    dplyr::select(GROSS.SQUARE.FEET,GSFandManhattan) 
 
+predicted_price<- predict(fit_IsManhattan,newd,interval="prediction")
+rmse_IsManhattan_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])
+```
+
+```{r, echo=FALSE}
+temp_p<-test_set %>%
+    mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                     TRUE ~ 0     )*GROSS.SQUARE.FEET) %>% 
+    mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET+b2*GSFandManhattan) %>% 
+    mutate(residul=(SALE.PRICE-predicted_price)^2) %>%
+    mutate(r=sqrt(residul))
+
+MED<-median(temp_p$r)
+
+rmse_results <-rbind(rmse_results, 
+                     data.frame(method="Is Manhattan",                                RMSE_in_thousand=round(rmse_IsManhattan_model/1000,0),                                MED_in_thousand=round(median(temp_p$r)/1000,0),                                 k=round(rmse_IsManhattan_model/median(temp_p$r),0),
+                                Adj_r_sq=summary(fit_IsManhattan)[9]))
+
+```
+
+
+```{r}
+rmse_results
+```
 
 ### Pros
+The model quantify the price difference bettween Manhattan and other boroughs in New York. The RMSE reduced and the Adjsuted R Square increased.
+
+```{r, echo=FALSE}
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+i=2
+temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
+    
+
+
+```
+
+The RMSE in Manhattan siginificantly reduced from 2 miliion to 1.4 milition.
 
 ### Cons
 
+The adjusted r square is 30%. And the RMSE for the properties is high for some ZIP codes.
+
+```{r, echo=FALSE}
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+i=12
+temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
+    
+
+```
+
+Therefore, let's zoom in and consider ZIP code in our next model.
 
 ## 2.3 Model 3
 
