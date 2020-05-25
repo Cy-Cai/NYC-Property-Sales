@@ -258,13 +258,6 @@ train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>%
   geom_boxplot(outlier.colour="black", outlier.shape=16,
                outlier.size=2, notch=FALSE)
 
-HighPricingArea<- train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
-  group_by(ZIP.CODE) %>% 
-  summarise(m=mean(price_per_square_feet),n=NROW(Prop_ID)) %>% 
-  arrange(desc(m)) %>% 
-  mutate(PPSF=case_when(m>550~1,
-                                        TRUE ~ 0))
-sum(x[x$m>550,]$n)/sum(x$n)
 
 #MOdel 3:  SALE.PRICE~GROSS.SQUARE.FEET+ IS.HIGH.PRICING.AREA
 #y=b0+b1*x1+b2*(I(MANHATTAN))+b3*(I(HIGH.PRICING.AREA))
@@ -272,6 +265,20 @@ sum(x[x$m>550,]$n)/sum(x$n)
 
 #adding a column: if it is in Manhattan, it equals to Gross Square Feet; otherwise 0
 #adding a column: if it is in Manhattan, it equals to Gross Square Feet; otherwise 0
+
+#find out the best price point to define High and Low
+df<-data.frame()
+for (p in seq(100,1000,by=50)) {
+  
+
+HighPricingArea<- train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
+  group_by(ZIP.CODE) %>% 
+  summarise(m=mean(price_per_square_feet),n=NROW(Prop_ID)) %>% 
+  arrange(desc(m)) %>% 
+  mutate(PPSF=case_when(m>p~1,
+                                        TRUE ~ 0))
+
+
 
 temp <- train_set %>% 
                    left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
@@ -285,6 +292,30 @@ fit_IsManhattanAndHighPricingArea<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhat
 
 tidy(fit_IsManhattanAndHighPricingArea)
 summary(fit_IsManhattanAndHighPricingArea)    
+df<-rbind(df,c(p=p,R=summary(fit_IsManhattanAndHighPricingArea)[9] ) )
+}
+df[which.max(df$R.adj.r.squared),]
+
+# the best cut off is 450
+
+HighPricingArea<- train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
+  group_by(ZIP.CODE) %>% 
+  summarise(m=mean(price_per_square_feet),n=NROW(Prop_ID)) %>% 
+  arrange(desc(m)) %>% 
+  mutate(PPSF=case_when(m>450~1,
+                        TRUE ~ 0))
+temp <- train_set %>% 
+  left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET)
+
+
+
+fit_IsManhattanAndHighPricingArea<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhattan+ GSFandHIGH.PRICING.AREA,data = temp)
+
+tidy(fit_IsManhattanAndHighPricingArea)
+summary(fit_IsManhattanAndHighPricingArea) 
 
 #save the model coefficient for the predcition calculation
 b0<-fit_IsManhattanAndHighPricingArea$coefficients[1]
@@ -354,6 +385,7 @@ for (i in loop.vector) {
   
   print(plot)
 }
+
 
 
 
