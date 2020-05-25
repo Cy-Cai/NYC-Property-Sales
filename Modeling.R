@@ -1,8 +1,9 @@
 if(!require(broom)) install.packages("broom", repos = "http://cran.us.r-project.org")
 if(!require(graphics)) install.packages("graphics", repos = "http://cran.us.r-project.org")
 if(!require(UsingR)) install.packages("UsingR", repos = "http://cran.us.r-project.org")
-
-
+library(broom)
+library(graphics)
+library(UsingR)
 
 head(train_set)
 sapply(train_set, class)
@@ -17,12 +18,9 @@ RMSE <- function(true_price,predicted_price){
 #      }
 
 #Exploratory Analysis
-
-
-
 #The simplest model: SALE.PRICE~GROSS.SQUARE.FEET
 fit_simplest<- lm(SALE.PRICE~GROSS.SQUARE.FEET,data = train_set)
-library(broom)
+
 tidy(fit_simplest)
 summary(fit_simplest)
 
@@ -36,7 +34,6 @@ predicted_price<- predict(fit_simplest,newd,interval="prediction")
 rmse_simplist_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
 # aberrorper_simplist_model<-AbEorrPer(test_set$SALE.PRICE,predicted_price[,1])
 
-
 #Observe the RMSE by Property ID
 #Create temp table to draw plot; calculate the residual by property 
 temp_p<-test_set %>%mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET) %>% 
@@ -46,13 +43,14 @@ MED<-median(temp_p$r)
 
 #Store the results 
 rmse_results <- data.frame(method="gross sq ft",RMSE_in_thousand=round(rmse_simplist_model/1000,0),MED_in_thousand=round(median(temp_p$r)/1000,0))%>%
-    mutate(k=round(RMSE_in_thousand/MED_in_thousand,0))
+    mutate(k=round(RMSE_in_thousand/MED_in_thousand,0),Adj_r_sq=summary(fit_simplest)[9])
 
 #Scatter Plot
 temp_p  %>% 
     ggplot(aes(Prop_ID,r))+geom_point()
 
 #Histogram
+
 temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
     labs(x="Residual",y="Property Count",title="Histogram Property Count vs Residual")+
     geom_vline(xintercept=median(temp_p$r))
@@ -65,29 +63,29 @@ temp_p<-test_set %>%mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET) %>%
 
 #Create a for loop to create bar chart for each variable
 
-names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
-loop.vector<-c(2,3,4,5,9,12,18,19,20)
-# library(UsingR)
-# par(mfrow=c(3,ceiling(length(loop.vector)/3)))
-# par(mfrow=c(1,2))
-
-loop.names<-names(temp_p)
-
-for (i in loop.vector) {
- #Observe the RMSE by Borough
-print(i)
-
- plot<-temp_p%>%dplyr::select(i,25) %>% 
-     rename(A=1) %>%
-        group_by(A) %>%
-    summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
-        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
-       labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
-      geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-     geom_hline(yintercept=rmse_simplist_model)
-        
- print(plot)
-}
+# names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
+# loop.vector<-c(2,3,4,5,9,12,18,19,20)
+# # library(UsingR)
+# # par(mfrow=c(3,ceiling(length(loop.vector)/3)))
+# # par(mfrow=c(1,2))
+# 
+# loop.names<-names(temp_p)
+# 
+# for (i in loop.vector) {
+#  #Observe the RMSE by Borough
+# print(i)
+# 
+#  plot<-temp_p%>%dplyr::select(i,26) %>% 
+#      rename(A=1) %>%
+#         group_by(A) %>%
+#     summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+#         ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+#        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+#       geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+#      geom_hline(yintercept=rmse_simplist_model)
+#         
+#  print(plot)
+# }
 
 #The 2nd Model: SALE.PRICE~GROSS.SQUARE.FEET+ IS.Manhattan
 #y=b0+b1*x1+b2*(I(Manhattan)*x1)
@@ -130,7 +128,7 @@ MED<-median(temp_p$r)
 
 #Store the results 
 rmse_results <-rbind(rmse_results, data.frame(method="Is Manhattan",RMSE_in_thousand=round(rmse_IsManhattan_model/1000,0),MED_in_thousand=round(median(temp_p$r)/1000,0))%>%
-    mutate(k=round(RMSE_in_thousand/MED_in_thousand,0)))
+    mutate(k=round(RMSE_in_thousand/MED_in_thousand,0),Adj_r_sq=summary(fit_IsManhattan)[9]))
 
 #Histogram
 temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
@@ -142,8 +140,8 @@ temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
 
 #Create a for loop to create bar chart for each variable
 
-names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
-loop.vector<-c(2,3,4,5,9,12,18,19,20)
+names(train_set)[c(2,3,4,5,9,12,15,18,19,20,21)]
+loop.vector<-c(2,3,4,5,9,12,15,18,19,20,24)
 # library(UsingR)
 # par(mfrow=c(3,ceiling(length(loop.vector)/3)))
 # par(mfrow=c(1,2))
@@ -181,7 +179,52 @@ train_set %>% filter(SALE.PRICE<1000000) %>%
     geom_boxplot(outlier.colour="black", outlier.shape=16,
                                                     outlier.size=2, notch=FALSE)
 #SALE.PRICE in Manhathan varies a lot. Need to determine extra factor for
-#Manhattan
+#Manhattan. We should look what factor is affecting the price other than 
+#the Borough
+
+#let's look at the million dollars houses
+MillionProperty<-train_set %>% filter(SALE.PRICE>=1000000)
+
+#let's look at bulding class category
+MillionProperty %>% group_by(BUILDING.CLASS.CATEGORY) %>% 
+    summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+    arrange(desc(m))
+#let's look at the building class
+MillionProperty  %>% 
+    group_by(Building.Class) %>% 
+    summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+    arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#let's look at the detailded build class
+MillionProperty  %>% 
+  group_by(BUILDING.CLASS.AT.TIME.OF.SALE) %>% 
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#let's look at the total units
+MillionProperty  %>% 
+  group_by(TOTAL.UNITS) %>% 
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE),s=sd(SALE.PRICE)) %>% 
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#the price for A4 type is twice more than the others
+#let's look at the distribution of A4 type by BOROUGH
+MillionProperty %>% filter(BUILDING.CLASS.AT.TIME.OF.SALE=="A4") %>% 
+                group_by(BOROUGH) %>% 
+                summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#Observation: there are A4 Type in both BOROUGH 1 and 3, but the A4 Type
+#in Manhattan is 4 times of the others
+
+MillionProperty %>% filter(BOROUGH=="1") %>% 
+  group_by(BUILDING.CLASS.AT.TIME.OF.SALE) %>% 
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
 
 
+MillionProperty %>% filter(BOROUGH=="3") %>% 
+  group_by(BUILDING.CLASS.AT.TIME.OF.SALE) %>% 
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
 
