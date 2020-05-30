@@ -158,80 +158,75 @@ temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
 names(train_set)[c(2,3,4,5,9,12,15,18,19,20,21)]
 loop.vector<-c(2,3,4,5,9,12,15,18,19,20,24)
 
-# loop.names<-names(temp_p)
-# len<-ncol(temp_p)
-# for (i in loop.vector) {
-#     #Observe the RMSE by Borough
-#     print(i)
-#     plot<-temp_p%>%dplyr::select(i,len-1) %>% 
-#         rename(A=1) %>%
-#         group_by(A) %>%
-#         summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
-#         ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
-#         labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
-#         geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-#         geom_hline(yintercept=rmse_IsManhattan_model)
-#     
-#     print(plot)
-# }
-# 
-# #Observation: RMSE decrease, but still big; mainly impacted by 
-# #transacation in Manhattan need to look deeper in to Manhattan's transcations
-# 
-# train_set %>%  filter(SALE.PRICE>=1000000) %>% 
-#           ggplot(aes(x=Prop_ID,y=SALE.PRICE,color=factor(BOROUGH)))+
-#     geom_point()
-# 
-# train_set %>%  filter(SALE.PRICE>=1000000) %>% 
-#     group_by(BOROUGH) %>% 
-#     summarise(NROW(SALE.PRICE))
-# 
-# train_set %>% filter(SALE.PRICE<1000000) %>% 
-#     ggplot(aes(x=factor(BOROUGH),y=SALE.PRICE))+
-#     geom_boxplot(outlier.colour="black", outlier.shape=16,
-#                                                     outlier.size=2, notch=FALSE)
-# #SALE.PRICE in Manhathan varies a lot. Need to determine extra factor for
-# #Manhattan. We should look what factor is affecting the price other than 
-# #the Borough
-# 
-# #let's look at the million dollars houses
-# MillionProperty<-train_set %>% filter(SALE.PRICE>=1000000)
-# 
-# #let's look at bulding class category
-# MillionProperty %>% group_by(BUILDING.CLASS.CATEGORY) %>% 
-#     summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
-#     arrange(desc(m))
-# #let's look at the building class
-# MillionProperty  %>% 
-#     group_by(Building.Class) %>% 
-#     summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
-#     arrange(desc(m)) %>% filter(n>10,m>1000000)
-# 
-# #let's look at the detailded build class
-# MillionProperty  %>% 
-#   group_by(BUILDING.CLASS.AT.TIME.OF.SALE) %>% 
-#   summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
-#   arrange(desc(m)) %>% filter(n>10,m>1000000)
-# 
-# #let's look at the total units
-# MillionProperty  %>% 
-#   group_by(TOTAL.UNITS) %>% 
-#   summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE),s=sd(SALE.PRICE)) %>% 
-#   arrange(desc(m)) %>% filter(n>10,m>1000000)
-# 
-# #the price for A4 type is twice more than the others
-# #let's look at the distribution of A4 type by BOROUGH
-# MillionProperty %>% filter(BUILDING.CLASS.AT.TIME.OF.SALE=="A4") %>% 
-#                 group_by(BOROUGH) %>% 
-#                 summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>% 
-#   arrange(desc(m)) %>% filter(n>10,m>1000000)
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+for (i in loop.vector) {
+    #Observe the RMSE by Borough
+    print(i)
+    plot<-temp_p%>%dplyr::select(i,len-1) %>%
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
 
-i=12
-d<-temp_p%>%dplyr::select(i,len-1) %>% 
-  rename(A=1) %>%
-  group_by(A) %>%
-  summarise(r=sqrt(mean(residul)),n=NROW(A))
-sum(d$n[d$r>300000])/sum(d$n)
+    print(plot)
+}
+
+#Observation: RMSE decrease, but still big; mainly impacted by
+#transacation in Manhattan need to look deeper in to Manhattan's transcations
+
+train_set %>%  filter(SALE.PRICE>=1000000) %>%
+          ggplot(aes(x=Prop_ID,y=SALE.PRICE,color=factor(BOROUGH)))+
+    geom_point()
+
+train_set %>%  filter(SALE.PRICE>=1000000) %>%
+    group_by(BOROUGH) %>%
+    summarise(NROW(SALE.PRICE))
+
+train_set %>% filter(SALE.PRICE<1000000) %>%
+    ggplot(aes(x=factor(BOROUGH),y=SALE.PRICE))+
+    geom_boxplot(outlier.colour="black", outlier.shape=16,
+                                                    outlier.size=2, notch=FALSE)
+#SALE.PRICE in Manhathan varies a lot. Need to determine extra factor for
+#Manhattan. We should look what factor is affecting the price other than
+#the Borough
+
+#let's look at the million dollars houses
+MillionProperty<-train_set %>% filter(SALE.PRICE>=1000000)
+
+#let's look at bulding class category
+MillionProperty %>% group_by(BUILDING.CLASS.CATEGORY) %>%
+    summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>%
+    arrange(desc(m))
+#let's look at the building class
+MillionProperty  %>%
+    group_by(Building.Class) %>%
+    summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>%
+    arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#let's look at the detailded build class
+MillionProperty  %>%
+  group_by(BUILDING.CLASS.AT.TIME.OF.SALE) %>%
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>%
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#let's look at the total units
+MillionProperty  %>%
+  group_by(TOTAL.UNITS) %>%
+  summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE),s=sd(SALE.PRICE)) %>%
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+#the price for A4 type is twice more than the others
+#let's look at the distribution of A4 type by BOROUGH
+MillionProperty %>% filter(BUILDING.CLASS.AT.TIME.OF.SALE=="A4") %>%
+                group_by(BOROUGH) %>%
+                summarise(n=NROW(SALE.PRICE),m=mean(SALE.PRICE)) %>%
+  arrange(desc(m)) %>% filter(n>10,m>1000000)
+
+
 
 #Observation: there are A4 Type in both BOROUGH 1 and 3, but the A4 Type
 #in Manhattan is 4 times of the others
