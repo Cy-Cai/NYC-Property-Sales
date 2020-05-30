@@ -15,9 +15,6 @@ RMSE <- function(true_price,predicted_price){
   sqrt(mean((true_price-predicted_price)^2))
 }
 
-# AbEorrPer <- function(true_price,predicted_price){
-#      mean(abs(true_price-predicted_price)/true_price)
-#      }
 
 #Exploratory Analysis
 #The simplest model: SALE.PRICE~GROSS.SQUARE.FEET
@@ -69,9 +66,6 @@ temp_p<-test_set %>%mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET) %>%
 
 names(train_set)[c(2,3,4,5,9,12,18,19,20,21)]
 loop.vector<-c(2,3,4,5,9,12,18,19,20)
-# library(UsingR)
-# par(mfrow=c(3,ceiling(length(loop.vector)/3)))
-# par(mfrow=c(1,2))
 
 loop.names<-names(temp_p)
 
@@ -150,9 +144,6 @@ temp_p%>% filter(r<4*MED)%>%  ggplot(aes(r))+geom_histogram(bins=20)+
 
 names(train_set)[c(2,3,4,5,9,12,15,18,19,20,21)]
 loop.vector<-c(2,3,4,5,9,12,15,18,19,20,24)
-# library(UsingR)
-# par(mfrow=c(3,ceiling(length(loop.vector)/3)))
-# par(mfrow=c(1,2))
 
 loop.names<-names(temp_p)
 len<-ncol(temp_p)
