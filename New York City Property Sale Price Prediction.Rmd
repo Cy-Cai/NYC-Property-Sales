@@ -30,7 +30,7 @@ load("rda/test_set.rda")
 # 1 Introduction
 With the assumption that historical data contains inights for the future, we attempt to predict human behavior. The research is done in various areas, such as retail, movies, polls etc. 
 
-## 1.1 The Chanllenge 
+## 1.1 The Challenge 
 In this project, I will build a regression model for property sale. The model will predict the sale price for an exsiting property in New York City. I will only look at the properties which is between 50 thousand and 5 millions and is one family dwelling.
 
 ## 1.2 Dataset: Properties Sold in New York City 
@@ -48,7 +48,7 @@ I will find a consice and yet accurate model. The project is aimed at adjusted R
 Before modeling, I create two dataset: **edx** and **validation**. The **validation** is 10% of the full dataset, and is only used for final assessement of the model. It won't be used for anywhere else in the project. The **edx** data is going to be split into two subset, **train_set** and **test_set**.
 
 ## 2.1 The Simplest Model
-The simplest model, {Sale Price}=b0+b1*{Gross Square Feet}+e_i.I only consider the gross square feet in this model. 
+The simplest model, {Sale Price}=b0+b1x{Gross Square Feet}+e_i.I only consider the gross square feet in this model. 
 
 ```{r, echo=FALSE}
 RMSE <- function(true_price,predicted_price){
@@ -122,7 +122,7 @@ Therefore, I need to consider borough as a factor for the next model.
 
 
 ## 2.2 Model 2
-In the 2nd Model,I consider GROSS.SQUARE.FEET as well as whethr the property is in Manhattan.The regression expression is y=b0+b1*GSF+b2*(I(Manhattan)*GSF.
+In the 2nd Model,I consider GROSS.SQUARE.FEET as well as whethr the property is in Manhattan.The regression expression is y=b0+b1xGSF+b2x(I(Manhattan)xGSF.
 
 I(Manhattan) is identity funcition. It equals to 1 if the property is in Manhattan; otherwise zero.
 
@@ -144,7 +144,7 @@ b1<-fit_IsManhattan$coefficients[2]
 b2<-fit_IsManhattan$coefficients[3]
 ```
 
-So the model 1 can be expressed as: {Sale.Price}=`r format(round(b0,0),scientific=F)`+`r round(b1,0)`* {GROSS.SQUARE.FEET} +`r round(b2,0)` * {IS.MANHATTAN} * {GROSS.SQUARE.FEET}.
+So the model can be expressed as: {Sale.Price}=`r format(round(b0,0),scientific=F)`+`r round(b1,0)`* {GROSS.SQUARE.FEET} +`r round(b2,0)` * {IS.MANHATTAN} * {GROSS.SQUARE.FEET}.
 
 The model predicts the base price for a property is `r format(round(b0,0),scientific=F)` dollars.If  the property is not in Manhattan,every extra square feet is `r round(b1,0)` dollars. If the property is in Manhattan, every extra square feet is `r round(b1+b2,0)` dollars. 
 
@@ -225,9 +225,141 @@ temp_p%>%dplyr::select(i,len-1) %>%
 Therefore, let's zoom in and consider ZIP code in our next model.
 
 ## 2.3 Model 3
+I added a column "price per square feet", which is calulated as {SALE.PRICE}/{GROSS.SQUARE.FEET}.The following boxplot shows the how the price per square feet varies by ZIP Code.
 
+```{r, echo= FALSE}
+train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
+  ggplot(aes(x=fct_reorder(ZIP.CODE,price_per_square_feet,.desc=TRUE),y=price_per_square_feet,fill=as.factor(BOROUGH)))+
+  geom_boxplot(outlier.colour="black", outlier.shape=16,
+               outlier.size=1, notch=FALSE)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),legend.position = "bottom")+
+  labs(x="ZIP Code",y="Price Per Square Feet",fill="Borough")
+```
+
+Since the means of price per squaer feet by ZIP Code vary between 2000 and 500 roughly, I am going to pick a number M. If the price per square feet is higher than M, it is in a High Pricing Area. 
+
+Then how to pick a proper number? I will run a loop and use the number that gives best adjusted R square as the M.
+
+```{r, echo=FALSE}
+df<-data.frame()
+for (p in seq(100,1000,by=50)) {
+HighPricingArea<- train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
+  group_by(ZIP.CODE) %>% 
+  summarise(m=mean(price_per_square_feet),n=NROW(Prop_ID)) %>% 
+  arrange(desc(m)) %>% 
+  mutate(PPSF=case_when(m>p~1,
+                                        TRUE ~ 0))
+temp <- train_set %>% 
+                   left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET)
+  
+fit_IsManhattanAndHighPricingArea<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhattan+ GSFandHIGH.PRICING.AREA,data = temp)
+
+tidy(fit_IsManhattanAndHighPricingArea)
+summary(fit_IsManhattanAndHighPricingArea)    
+df<-rbind(df,c(p=p,R=summary(fit_IsManhattanAndHighPricingArea)[9] ) )
+}
+```
+
+
+```{r}
+df[which.max(df$R.adj.r.squared),]
+df %>% ggplot(aes(x=p,y=R.adj.r.squared))+geom_point()+geom_line()
+```
+
+So M=450. 
+
+In the 3rd Model,I consider whether the property is in a High Pricing Area.The regression expression is y=b0+b1xGSF+b2x(I(Manhattan)xGSF.+b3x(I(PPSF>450)xGSF.
+
+I(PPSF>450) equals to 1 if the price per square feet of the property is higher than 450; otherwise zero.
+
+```{r, echo=FALSE}
+HighPricingArea<- train_set %>% mutate(price_per_square_feet=SALE.PRICE/GROSS.SQUARE.FEET) %>% 
+  group_by(ZIP.CODE) %>% 
+  summarise(m=mean(price_per_square_feet),n=NROW(Prop_ID)) %>% 
+  arrange(desc(m)) %>% 
+  mutate(PPSF=case_when(m>450~1,
+                        TRUE ~ 0))
+temp <- train_set %>% 
+  left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET)
+
+
+
+
+```
+
+
+```{r}
+fit_IsManhattanAndHighPricingArea<- lm(SALE.PRICE~GROSS.SQUARE.FEET+GSFandManhattan+ GSFandHIGH.PRICING.AREA,data = temp)
+
+tidy(fit_IsManhattanAndHighPricingArea)
+summary(fit_IsManhattanAndHighPricingArea)[9]
+```
+```{r,echo=FALSE}
+#save the model coefficient for the predcition calculation
+b0<-fit_IsManhattanAndHighPricingArea$coefficients[1]
+b1<-fit_IsManhattanAndHighPricingArea$coefficients[2]
+b2<-fit_IsManhattanAndHighPricingArea$coefficients[3]
+b3<-fit_IsManhattanAndHighPricingArea$coefficients[4]
+```
+
+So the model can be expressed as: {Sale.Price}=`r format(round(b0,0),scientific=F)`+`r round(b1,0)`* {GROSS.SQUARE.FEET} +`r round(b2,0)` * {IS.MANHATTAN} * {GROSS.SQUARE.FEET}+`r round(b3,0)` * {IS.HIGH.PRICING.AREA} * {GROSS.SQUARE.FEET}.
+
+The model predicts the base price for a property is `r format(round(b0,0),scientific=F)` dollars.Every extra square feet is:
+
+If  the property is not in Manhattan and not in high pricing area, `r round(b1,0)` dollars;
+
+If the property is in Manhattan and not in high pricing area,  `r round(b1+b2,0)` dollars; 
+
+If the property is not in Manhattan and in high pricing area,  `r round(b1+b3,0)` dollars; 
+
+If the property is in Manhattan and in high pricing area,  `r round(b1+b2+b3,0)` dollars. 
 
 ### Performance
+```{r, echo=FALSE}
+newd<-test_set %>% 
+  left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET) %>%  
+  dplyr::select(GROSS.SQUARE.FEET,GSFandManhattan,GSFandHIGH.PRICING.AREA) 
+
+
+predicted_price<- predict(fit_IsManhattanAndHighPricingArea,newd,interval="prediction")
+rmse_IsManhattanAndHighPricingArea_model<-RMSE(test_set$SALE.PRICE,predicted_price[,1])  
+
+```
+```{r,echo=FALSE}
+temp_p<-test_set %>%
+  left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET) %>%  
+  mutate(predicted_price=b0+b1*GROSS.SQUARE.FEET+b2*GSFandManhattan+b3*GSFandHIGH.PRICING.AREA) %>% 
+  mutate(residul=(SALE.PRICE-predicted_price)^2) %>%
+  mutate(r=sqrt(residul))
+
+MED<-median(temp_p$r)
+
+#Store the results 
+rmse_results <-rbind(rmse_results, 
+                     data.frame(method="Is Manhattan and High Pricing Area",
+                                RMSE_in_thousand=round(rmse_IsManhattanAndHighPricingArea_model/1000,0),
+                                MED_in_thousand=round(median(temp_p$r)/1000,0), 
+                                k=round(rmse_IsManhattanAndHighPricingArea_model/median(temp_p$r),0),
+                                Adj_r_sq=summary(fit_IsManhattanAndHighPricingArea)[9]))
+
+
+
+```
+```{r}
+rmse_results
+```
 
 
 ### Pros

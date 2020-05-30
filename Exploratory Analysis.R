@@ -4,11 +4,19 @@
 set.seed(111)
 test_index <-  createDataPartition(y=edx$SALE.PRICE,times=1,p=0.2,list=F)
 train_set <- edx[-test_index,]
-test_set <- edx[test_index,]
+temp <- edx[test_index,]
+
+# Make sure zip zode in validation set are also in edx set
+test_set <- temp %>% 
+    semi_join(train_set, by = "ZIP.CODE")
+
+# Add rows removed from validation set back into edx set
+removed <- anti_join(temp, test_set)
+train_set <- rbind(train_set, removed)
 #save the data files, it is used in the R markdownd file
 save(train_set,file="rda/train_set.rda")
 save(test_set,file="rda/test_set.rda")
-rm(test_index)
+rm(test_index,temp,removed)
 
 
 #Explore the data

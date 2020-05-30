@@ -26,7 +26,7 @@ prop_sales<-prop_sales %>%
 #there are still some transcation with  nonsensically small dollar amount
 prop_sales<-prop_sales %>% 
     mutate(Building.Class=substr(BUILDING.CLASS.AT.TIME.OF.SALE,1,1)) %>% 
-    filter(SALE.PRICE<=2000000 & SALE.PRICE>50000 & GROSS.SQUARE.FEET>0 & Building.Class %in% c("A") &TOTAL.UNITS==1)  #& BUILDING.CLASS.AT.TIME.OF.SALE %!in% c("A4","A3")
+    filter(SALE.PRICE<=5000000 & SALE.PRICE>50000 & GROSS.SQUARE.FEET>0 & Building.Class %in% c("A") &TOTAL.UNITS==1)  #& BUILDING.CLASS.AT.TIME.OF.SALE %!in% c("A4","A3")
 
  prop_sales %>% group_by(TOTAL.UNITS) %>% summarise(NROW(Prop_ID))
 # names(prop_sales)
@@ -40,11 +40,20 @@ set.seed(1, sample.kind="Rounding")
 
 test_index <- createDataPartition(y = prop_sales$SALE.PRICE, times = 1, p = 0.1, list = FALSE)
 edx <- prop_sales[-test_index,]
-validation <- prop_sales[test_index,]
+temp <- prop_sales[test_index,]
+
+# Make sure zip zode in validation set are also in edx set
+validation <- temp %>% 
+    semi_join(edx, by = "ZIP.CODE")
+
+# Add rows removed from validation set back into edx set
+removed <- anti_join(temp, validation)
+edx <- rbind(edx, removed)
+
 
 #save as Rdata file
 save(edx,file="rda/edx.rda")
 save(validation,file="rda/validation.rda")
 
 #remove temp variables
-rm(prop_sales,test_index)
+rm(prop_sales,test_index,temp,removed)
