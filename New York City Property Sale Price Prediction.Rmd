@@ -2,7 +2,7 @@
 title: "New York City Property Sale Price Prediction"
 author: "Cyrus Cai"
 date: "5/16/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -41,7 +41,7 @@ head(train_set,5)
 ```
 
 ## 1.3 Goal
-I will find a consice and yet accurate model. The project is aimed at adjusted R square of 50% and RMSE of 10K. The project is also aimed to produce an easy-to-follow and reproducible report.
+I will find a consice and yet accurate model. The project is aimed at adjusted R square of 50% and RMSE of 100K. The project is also aimed to produce an easy-to-follow and reproducible report.
 
 
 # 2 Analysis
@@ -222,6 +222,19 @@ temp_p%>%dplyr::select(i,len-1) %>%
 
 ```
 
+
+```{r}
+i=12
+d<-temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))
+sum(d$n[d$r>300000])
+```
+
+
+There are `r sum(d$n[d$r>300000])` properties within the the high RMSE ZIP Code area. We try to reduce this number in model 3.
+
 Therefore, let's zoom in and consider ZIP code in our next model.
 
 ## 2.3 Model 3
@@ -361,23 +374,112 @@ rmse_results <-rbind(rmse_results,
 rmse_results
 ```
 
-
 ### Pros
+The Adjusted R Square increase from 30% (model 2) to 55%. The RMSE is reduced from 350K to 300K. The median of the residual is reduced from 163K to 100K. 
+
+Also, the RMSEs by ZIP Code varies less than model 2. 
+
+```{r, echo=FALSE}
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+i=12
+temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
+    
+```
+
+```{r}
+i=12
+d<-temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))
+sum(d$n[d$r>300000])
+```
+
+There are `r sum(d$n[d$r>300000])` properties within the the high RMSE ZIP Code area. It is siginificantly lower than model 2.
 
 ### Cons
+Let's look at the RMSE by year built. The RMSE decreases as year built is newer. It indicates the model doesn't account for the change of value when the property gets old. 
 
+```{r, echo=FALSE}
+loop.names<-names(temp_p)
+len<-ncol(temp_p)
+i=18
+temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))%>%
+        ggplot(aes(A,r,fill=n))+geom_bar(stat = "identity") +
+        labs(x=loop.names[i],y="Residual")+scale_fill_gradient(low="blue", high="red")+
+        geom_text(aes(label=round(r,3)),size=3,check_overlap = TRUE,position=position_dodge(width=0.9), vjust=-0.25)+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+        geom_hline(yintercept=rmse_IsManhattan_model)
+    
+```
+
+
+```{r}
+i=18
+d<-temp_p%>%dplyr::select(i,len-1) %>% 
+        rename(A=1) %>%
+        group_by(A) %>%
+        summarise(r=sqrt(mean(residul)),n=NROW(A))
+sum(d$n[d$r>300000])
+```
+
+There are `r sum(d$n[d$r>300000])` properties built in the years of higher RMSEs. 
 
 # 3 Results
 
+```{r load the validation dataset,echo=FALSE}
+load("rda/validation.rda")
+newd<-validation %>% 
+  left_join(HighPricingArea,by=c("ZIP.CODE")) %>% 
+  mutate(GSFandManhattan=case_when(BOROUGH=="1"~ 1,
+                                   TRUE ~ 0     )*GROSS.SQUARE.FEET,
+         GSFandHIGH.PRICING.AREA=PPSF*GROSS.SQUARE.FEET) %>%  
+  dplyr::select(GROSS.SQUARE.FEET,GSFandManhattan,GSFandHIGH.PRICING.AREA) 
+
+
+predicted_price<- predict(fit_IsManhattanAndHighPricingArea,newd,interval="prediction")
+rmse_validation<- RMSE(validation$SALE.PRICE,predicted_price[,1])  
+```
+
+```{r}
+rmse_validation 
+```
+The RMSE for the validation data set is `r format(round(rmse_validation ,0),scientific=F)`.
+
 ## Model Summary
+The simplest model considers only gross square feet and is used as a baseline model. It has an adjusted R square of 28%. 
+
+The model 2 considers the properties are more expensive in Manhattan. It reduces RMSE of the properties within Manhattan. However, the overall model doesn't improve very much. The adjusted R square increases to 30%.
+
+The model 3 considers the price per square feet as a factor. It classifies the properties by ZIP Code. The RMSE reduces from 350K to 300K, which falls short of the goal of 100K. However, the adjusted R square jumps siginificantly to 55%, which reaches the project goal of 50%.
 
 # 4 Conclusion
-
 ## Summary of the report
+The report starts from the simpleset model and is developed by adding factors to the previous model. And I use the RMSE histogram, boxplot to as a guidance of what factors should be added to the model. 
 
+I like the ZIP Code Model, because it takes into price per square feet into consideration. 
 
 ## Limitations
+The model 3 performs poorly with older properties. It doesn't consider that the age of the properties has impacts on the property value.
+
+It also does not consider differenct building classes. 
 
 ## Future Works
+In order to improve the model, I will include year built in my next model. Also, I will look into the impact from building class.
 
 # 5 Reference
+1 R Markdown Cheat Sheet [(https://rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf)]
+
+2 Data Science Courses from HarvardX [(https://courses.edx.org/)]
+
+3 Boxplot in R [http://www.sthda.com/english/wiki/ggplot2-box-plot-quick-start-guide-r-software-and-data-visualization]
